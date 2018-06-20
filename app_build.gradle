@@ -35,7 +35,7 @@ android {
     //读取配置文件
     getSigningProperties()
 
-    compileSdkVersion rootProject.ext.MAX_VERSION
+    compileSdkVersion rootProject.ext.MAX_VERSION  //对应设置写在project的根gradle下
     buildToolsVersion rootProject.ext.BUILD_TOOL_VERSION
     defaultConfig {
         applicationId ""
