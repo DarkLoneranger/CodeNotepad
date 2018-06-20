@@ -1,0 +1,130 @@
+apply plugin: 'com.android.application'
+//读取签名配置文件
+def getSigningProperties() {
+    def propFile = file('signing.properties')
+    if (propFile.canRead()) {
+        def Properties props = new Properties()
+        props.load(new FileInputStream(propFile))
+        if (props != null && props.containsKey('STORE_FILE') && props.containsKey('STORE_PASSWORD') && props.containsKey('KEY_ALIAS') && props.containsKey('KEY_PASSWORD')) {
+            android.signingConfigs.release.storeFile = file(props['STORE_FILE'])
+            android.signingConfigs.release.storePassword = props['STORE_PASSWORD']
+            android.signingConfigs.release.keyAlias = props['KEY_ALIAS']
+            android.signingConfigs.release.keyPassword = props['KEY_PASSWORD']
+            android.signingConfigs.release.v1SigningEnabled=true /*默认v1v2签名都为true*/
+            android.signingConfigs.release.v2SigningEnabled=true
+        } else {
+            println 'signing.properties found but some entries are missing'
+            android.buildTypes.release.signingConfig = null
+        }
+    } else {
+        println 'signing.properties not found'
+        android.buildTypes.release.signingConfig = null
+    }
+}
+
+android {
+    signingConfigs {
+        release {
+            storeFile
+            storePassword
+            keyAlias
+            keyPassword
+        }
+    }
+
+    //读取配置文件
+    getSigningProperties()
+
+    compileSdkVersion rootProject.ext.MAX_VERSION
+    buildToolsVersion rootProject.ext.BUILD_TOOL_VERSION
+    defaultConfig {
+        applicationId ""
+        minSdkVersion rootProject.ext.MIN_VERSION
+        targetSdkVersion rootProject.ext.MAX_VERSION
+        versionCode 34
+        versionName ""
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        multiDexEnabled true
+        ndk {
+            //选择要添加的对应cpu类型的.so库
+            abiFilters 'armeabi', 'arm64-v8a', 'x86'
+//                    'armeabi-v7a','armeabi-v7a', 'x86',"mips"
+        }
+
+        // 极光推送配置
+        manifestPlaceholders = [
+                JPUSH_PKGNAME: "",
+                JPUSH_APPKEY : "", //JPush上注册的包名对应的appkey.
+                JPUSH_CHANNEL: "", //用户渠道统计的渠道名称
+        ]
+    }
+    dexOptions {
+        javaMaxHeapSize "2g"
+    }
+
+    // 移除lint检查的error
+    lintOptions {
+        abortOnError false
+        disable 'MissingTranslation', 'ExtraTranslation'
+    }
+    sourceSets.main {
+        jniLibs.srcDirs = ['libs']
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false  //开启代码混淆
+            versionNameSuffix "-debug"
+            zipAlignEnabled false //是否zip对齐
+            shrinkResources false // 移除无用的resource文件
+            signingConfig signingConfigs.release
+        }
+        release {
+            buildConfigField "boolean", "LOG_DEBUG", "false"
+            minifyEnabled true
+            zipAlignEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+
+            applicationVariants.all { variant ->
+                variant.outputs.each { output ->
+                    def outputFile = output.outputFile
+                    if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                        def fileName = "${defaultConfig.versionName}_${variant.productFlavors[0].name}.apk"
+                        output.outputFile = new File(outputFile.parent, fileName)
+                    }
+                }
+            }
+        }
+    }
+
+    // 友盟多渠道打包
+    productFlavors {
+        //1、通过左侧边栏build variants修改 2、通过flavor修改
+        //raw-net.properties
+        //HttpUtils
+       // tesEnv {}//仿真环境
+        devEnv {}//测试环境
+        proEnv {}//生产环境
+    }
+    productFlavors.all { flavor ->
+        flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
+    }
+}
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+
+}
+allprojects {
+    repositories {
+        jcenter()
+
+    }
+}
+dependencies {
+   
+}
