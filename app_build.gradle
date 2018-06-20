@@ -71,6 +71,8 @@ android {
     sourceSets.main {
         jniLibs.srcDirs = ['libs']
     }
+	def calendar = Calendar.getInstance();
+    def time = String.format("%d%02d%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH)).substring(2,8);
 
     buildTypes {
         debug {
@@ -97,8 +99,37 @@ android {
                     }
                 }
             }
+
+
+             //3.0之后
+	        applicationVariants.all { variant ->    //批量修改Apk名字
+	            variant.outputs.all { output ->
+	                if (!variant.buildType.isDebuggable()) {
+	                    //获取签名的名字 variant.signingConfig.name
+	                    //要被替换的源字符串
+	                    def sourceFile = "app-${variant.flavorName}-${variant.buildType.name}"
+	                    //替换的字符串
+	                    def replaceFile = "${defaultConfig.versionName}_${time}_${variant.name}"
+	                    outputFileName = output.outputFile.name.replace(sourceFile, replaceFile);
+	                    
+	                }
+	            }
+	        }
+	        //library打aar包命名
+	         libraryVariants.all { variant ->
+		        variant.outputs.all { output ->
+		            if (outputFile != null && outputFileName.endsWith('.aar')) {
+		                String[] fileNamePart = outputFileName.split("-")
+		                String moduleName = fileNamePart[0]
+		                String firstWord = moduleName.substring(0,1)
+		                String needModuleName = firstWord.toUpperCase() + moduleName.substring(1,moduleName.length())
+		                outputFileName = "${needModuleName}SDK_${variant.buildType.name}_${defaultConfig.versionName}_${time}.aar"
+		            }
+		        }
+		    }
         }
     }
+
 
     // 友盟多渠道打包
     productFlavors {
@@ -109,6 +140,20 @@ android {
         devEnv {}//测试环境
         proEnv {}//生产环境
     }
+    //3.0之后
+	 flavorDimensions "env"
+	    productFlavors{
+	        dev_env_{
+	            buildConfigField("String", "SERVER_HOST", "\"http://develop.taikang.com/\"") //测试环境
+	            dimension "env"
+	        }
+
+	        pro_env_{
+	            buildConfigField("String", "SERVER_HOST", "\"http://m.tk.cn/\"")//正式环境
+	            dimension "env"
+	        }
+	    }
+
     productFlavors.all { flavor ->
         flavor.manifestPlaceholders = [UMENG_CHANNEL_VALUE: name]
     }
